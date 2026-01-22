@@ -7,7 +7,7 @@ if sys.version_info >= (3, 12):
         import setuptools
     except ImportError:
         pass
-    # ----------------------------------------------------
+# ----------------------------------------------------
 
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
@@ -28,14 +28,54 @@ from selenium.common.exceptions import StaleElementReferenceException, ElementCl
 COOKIES_FILE = "rumble_cookies.pkl"
 CHANNELS_FILE = "rumble_channels.pkl"
 RULES_FILE = "rumble_rules.pkl"
+ICON_FILE = "icon.ico"  # Place an .ico file in the same folder
 
 
 class RumbleManagerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Rumble Manager - Industrial Swarm")
+        self.root.title("Rumble Channel Video Manager - v1.0 Release")
         self.root.geometry("1100x800")
 
+        # --- 1. SET CUSTOM ICON ---
+        if os.path.exists(ICON_FILE):
+            try:
+                self.root.iconbitmap(ICON_FILE)
+            except Exception:
+                pass  # Fallback to default if icon is corrupt/invalid
+
+        # --- 2. APPLY MODERN THEME ---
+        self.style = ttk.Style()
+        self.style.theme_use("clam")  # 'clam' is generally cleaner than 'default' or 'winnative'
+
+        # Customize Colors & Fonts
+        bg_color = "#f0f0f0"
+        self.root.configure(bg=bg_color)
+
+        # Configure Frames
+        self.style.configure("TLabelframe", background=bg_color, relief="solid", borderwidth=1)
+        self.style.configure("TLabelframe.Label", background=bg_color, font=("Segoe UI", 10, "bold"), foreground="#333")
+
+        # Configure Buttons
+        # Green 'Action' Button
+        self.style.configure("Green.TButton", font=("Segoe UI", 10, "bold"), background="#4CAF50", foreground="white",
+                             borderwidth=0)
+        self.style.map("Green.TButton", background=[("active", "#45a049")])
+
+        # Red 'Stop' Button
+        self.style.configure("Red.TButton", font=("Segoe UI", 10, "bold"), background="#f44336", foreground="white",
+                             borderwidth=0)
+        self.style.map("Red.TButton", background=[("active", "#d32f2f")])
+
+        # Blue 'Login' Button
+        self.style.configure("Blue.TButton", font=("Segoe UI", 9), background="#2196F3", foreground="white",
+                             borderwidth=0)
+        self.style.map("Blue.TButton", background=[("active", "#1976D2")])
+
+        # Standard Button
+        self.style.configure("TButton", font=("Segoe UI", 9))
+
+        # --- APP STATE ---
         self.is_running = False
         self.rules = []
         self.font_size = 10
@@ -52,71 +92,93 @@ class RumbleManagerApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _setup_ui(self):
-        # 1. Session
-        top_frame = tk.LabelFrame(self.root, text="1. Session", padx=10, pady=10)
-        top_frame.pack(fill="x", padx=10, pady=5)
+        # Using ttk.LabelFrame for better styling
+        # Padding=(left, top, right, bottom)
 
-        self.btn_login = tk.Button(top_frame, text="Open Browser to Login",
-                                   command=self.perform_login, bg="#e1f5fe")
-        self.btn_login.pack(side="left", padx=5)
+        # --- 1. Session Section ---
+        top_frame = ttk.LabelFrame(self.root, text=" 1. Session Management ", padding=(15, 10))
+        top_frame.pack(fill="x", padx=15, pady=10)
 
-        # 2. Rules
-        rule_frame = tk.LabelFrame(self.root, text="2. Rules", padx=10, pady=10)
-        rule_frame.pack(fill="x", padx=10, pady=5)
+        self.lbl_info = ttk.Label(top_frame, text="Log in to Rumble to enable automation.", font=("Segoe UI", 9))
+        self.lbl_info.pack(side="left", padx=5)
 
-        input_frame = tk.Frame(rule_frame)
+        self.btn_login = ttk.Button(top_frame, text="Open Browser to Login", style="Blue.TButton",
+                                    command=self.perform_login)
+        self.btn_login.pack(side="right", padx=5)
+
+        # --- 2. Rules Section ---
+        rule_frame = ttk.LabelFrame(self.root, text=" 2. Rules Configuration ", padding=(15, 10))
+        rule_frame.pack(fill="x", padx=15, pady=5)
+
+        # Input Grid
+        input_frame = ttk.Frame(rule_frame)
         input_frame.pack(fill="x", pady=5)
 
-        tk.Label(input_frame, text="Title Contains:").pack(side="left")
-        self.entry_title_kw = tk.Entry(input_frame, width=15)
-        self.entry_title_kw.pack(side="left", padx=5)
+        ttk.Label(input_frame, text="Title Contains:").grid(row=0, column=0, padx=5, sticky="w")
+        self.entry_title_kw = ttk.Entry(input_frame, width=20)
+        self.entry_title_kw.grid(row=0, column=1, padx=5, sticky="w")
 
-        tk.Label(input_frame, text="Category Is:").pack(side="left")
-        self.entry_cat_kw = tk.Entry(input_frame, width=15)
-        self.entry_cat_kw.pack(side="left", padx=5)
+        ttk.Label(input_frame, text="Category Is:").grid(row=0, column=2, padx=5, sticky="w")
+        self.entry_cat_kw = ttk.Entry(input_frame, width=20)
+        self.entry_cat_kw.grid(row=0, column=3, padx=5, sticky="w")
 
-        tk.Label(input_frame, text="Target Channel:").pack(side="left")
+        ttk.Label(input_frame, text="Target Channel:").grid(row=0, column=4, padx=5, sticky="w")
         self.entry_target_channel = ttk.Combobox(input_frame, width=25)
-        self.entry_target_channel.pack(side="left", padx=5)
+        self.entry_target_channel.grid(row=0, column=5, padx=5, sticky="w")
 
-        tk.Button(input_frame, text="Add Rule", command=self.add_rule).pack(side="left", padx=10)
+        ttk.Button(input_frame, text="Add Rule", command=self.add_rule).grid(row=0, column=6, padx=15, sticky="e")
 
-        self.rule_list = ttk.Treeview(rule_frame, columns=("Title", "Category", "Target"), show="headings", height=4)
+        # Separator
+        ttk.Separator(rule_frame, orient="horizontal").pack(fill="x", pady=10)
+
+        # Treeview (Table)
+        self.rule_list = ttk.Treeview(rule_frame, columns=("Title", "Category", "Target"), show="headings", height=5)
         self.rule_list.heading("Title", text="Title Keyword")
         self.rule_list.heading("Category", text="Category Keyword")
         self.rule_list.heading("Target", text="Target Channel")
+
+        # Style the Treeview
+        self.rule_list.column("Title", width=200)
+        self.rule_list.column("Category", width=150)
+        self.rule_list.column("Target", width=250)
         self.rule_list.pack(fill="x", pady=5)
 
-        tk.Button(rule_frame, text="Delete Selected", command=self.delete_rule).pack(anchor="e")
+        ttk.Button(rule_frame, text="Delete Selected Rule", command=self.delete_rule).pack(anchor="e", pady=5)
 
-        # 3. Execution
-        action_frame = tk.LabelFrame(self.root, text="3. Execution", padx=10, pady=10)
-        action_frame.pack(fill="x", padx=10, pady=5)
+        # --- 3. Execution Section ---
+        action_frame = ttk.LabelFrame(self.root, text=" 3. Execution Control ", padding=(15, 10))
+        action_frame.pack(fill="x", padx=15, pady=5)
 
-        tk.Label(action_frame, text="Threads:").pack(side="left", padx=(5, 2))
-        self.spin_threads = tk.Spinbox(action_frame, from_=1, to=30, width=3)
-        self.spin_threads.pack(side="left", padx=5)
-        self.spin_threads.delete(0, "end")
-        self.spin_threads.insert(0, 4)
+        # Thread Control
+        thread_frame = ttk.Frame(action_frame)
+        thread_frame.pack(side="left")
+        ttk.Label(thread_frame, text="Workers (Threads):").pack(side="left", padx=(0, 5))
+        self.spin_threads = ttk.Spinbox(thread_frame, from_=1, to=30, width=5)
+        self.spin_threads.pack(side="left")
+        self.spin_threads.set(4)
 
+        # Checkboxes
         self.dry_run_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(action_frame, text="Dry Run", variable=self.dry_run_var).pack(side="left", padx=10)
+        self.chk_dry = ttk.Checkbutton(action_frame, text="Dry Run Mode (Safe)", variable=self.dry_run_var)
+        self.chk_dry.pack(side="left", padx=20)
 
         self.headless_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(action_frame, text="Run Headless", variable=self.headless_var).pack(side="left", padx=10)
+        self.chk_head = ttk.Checkbutton(action_frame, text="Run in Background (Headless)", variable=self.headless_var)
+        self.chk_head.pack(side="left", padx=5)
 
-        self.btn_run = tk.Button(action_frame, text="LAUNCH SWARM", command=self.start_swarm,
-                                 bg="#c8e6c9", font=("Arial", 11, "bold"))
-        self.btn_run.pack(side="right", padx=5)
-
-        self.btn_stop = tk.Button(action_frame, text="STOP ALL", command=self.stop_processing,
-                                  bg="#ffcdd2", font=("Arial", 10))
+        # Main Buttons
+        self.btn_stop = ttk.Button(action_frame, text="STOP ALL", style="Red.TButton", command=self.stop_processing)
         self.btn_stop.pack(side="right", padx=5)
 
-        # Logs
-        log_frame = tk.LabelFrame(self.root, text="Logs", padx=10, pady=10)
-        log_frame.pack(fill="both", expand=True, padx=10, pady=5)
-        self.log_area = scrolledtext.ScrolledText(log_frame, state='disabled', height=10)
+        self.btn_run = ttk.Button(action_frame, text="LAUNCH SWARM", style="Green.TButton", command=self.start_swarm)
+        self.btn_run.pack(side="right", padx=5)
+
+        # --- 4. Logs Section ---
+        log_frame = ttk.LabelFrame(self.root, text=" Application Logs (Ctrl+Scroll to Zoom) ", padding=(10, 10))
+        log_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        self.log_area = scrolledtext.ScrolledText(log_frame, state='disabled', height=10, font=("Consolas", 10),
+                                                  bg="#1e1e1e", fg="#00ff00", insertbackground="white")
         self.log_area.pack(fill="both", expand=True)
 
     def log(self, message):
@@ -125,19 +187,23 @@ class RumbleManagerApp:
             self.log_area.insert(tk.END, f"{message}\n")
             self.log_area.see(tk.END)
             self.log_area.config(state='disabled')
-            print(message)
+            # Only print to console if running from python directly
+            if not getattr(sys, 'frozen', False):
+                print(message)
 
     def zoom_ui(self, event):
         if event.delta > 0:
             self.font_size += 1
         else:
             self.font_size = max(6, self.font_size - 1)
-        self.log_area.configure(font=("Arial", self.font_size))
-        style = ttk.Style()
-        style.configure("Treeview", font=("Arial", self.font_size), rowheight=int(self.font_size * 2.5))
-        style.configure("Treeview.Heading", font=("Arial", self.font_size, "bold"))
+        self.log_area.configure(font=("Consolas", self.font_size))
 
-    # --- DRIVER FACTORY ---
+        # Scale Treeview row height with font
+        style = ttk.Style()
+        style.configure("Treeview", font=("Segoe UI", self.font_size), rowheight=int(self.font_size * 2.5))
+        style.configure("Treeview.Heading", font=("Segoe UI", self.font_size, "bold"))
+
+    # --- DRIVER FACTORY (FIXED) ---
     def get_driver(self, headless=False):
         options = uc.ChromeOptions()
         if headless:
@@ -147,7 +213,8 @@ class RumbleManagerApp:
         if headless:
             options.add_argument("--blink-settings=imagesEnabled=false")
 
-        driver = uc.Chrome(options=options)
+        # --- FIX: Force Version 143 to match your installed Chrome ---
+        driver = uc.Chrome(options=options, version_main=143)
         return driver
 
     def load_cookies(self, driver):
@@ -170,8 +237,8 @@ class RumbleManagerApp:
 
     def _login_process(self):
         self.log("Launching login browser...")
-        driver = self.get_driver(headless=False)
         try:
+            driver = self.get_driver(headless=False)
             driver.get("https://rumble.com/login.php")
             self.log("Please log in. Waiting 60s...")
             start = time.time()
@@ -183,8 +250,9 @@ class RumbleManagerApp:
                     self._fetch_channels_internal(driver)
                     break
                 time.sleep(1)
-        finally:
             driver.quit()
+        except Exception as e:
+            self.log(f"Login failed/closed: {e}")
 
     def _fetch_channels_internal(self, driver):
         self.log("Fetching channels...")
@@ -329,7 +397,6 @@ class RumbleManagerApp:
                         "div")
 
                     if parent:
-                        # Improved logic: Try to get H3 first, else get row text
                         title_el = parent.select_one("h3, .media-heading-name, .title")
                         if title_el:
                             row_text = title_el.get_text(strip=True)
@@ -364,35 +431,29 @@ class RumbleManagerApp:
             success = False
             for attempt in range(3):
                 try:
-                    # Always refresh before interaction in a swarm to clear gray overlays
                     driver.refresh()
                     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".my-videos-nav")))
 
                     triggers = driver.find_elements(By.CSS_SELECTOR, ".my-videos-nav .open-menu")
                     if vid_idx >= len(triggers): break
 
-                    # 1. Open Menu
                     trigger = triggers[vid_idx]
                     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", trigger)
-                    time.sleep(0.3)  # Throttle
+                    time.sleep(0.3)
                     driver.execute_script("arguments[0].click();", trigger)
 
-                    # 2. Click Edit
                     edit_btn = WebDriverWait(driver, 5).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, ".dd-menu[style*='block'] #edit")))
-                    time.sleep(0.2)  # Throttle
+                    time.sleep(0.2)
                     driver.execute_script("arguments[0].click();", edit_btn)
 
-                    # 3. Wait for Modal
                     WebDriverWait(driver, 5).until(EC.visibility_of_element_located((By.ID, "video-form")))
 
                     success = True
-                    break  # Success, move to editing
+                    break
                 except (StaleElementReferenceException, ElementClickInterceptedException, WebDriverException):
-                    # self.log(f"[W{worker_id}] Click failed, retrying...")
                     time.sleep(1)
                 except Exception as e:
-                    # Suppress ugliness
                     break
 
             if not success:
@@ -434,7 +495,6 @@ class RumbleManagerApp:
                         self.log(f"[W{worker_id}] -> Select Error: {e}")
 
             except Exception as e:
-                # Handle unexpected crashes inside edit modal gracefully
                 err = str(e).split('\n')[0]
                 self.log(f"[W{worker_id}] Edit Glitch: {err}")
 
@@ -444,10 +504,14 @@ class RumbleManagerApp:
 
     def on_close(self):
         self.is_running = False
+        self.log("Closing drivers... (Please wait)")
+        # Safe close to avoid WinError 6
         for d in self.drivers:
             try:
                 d.quit()
-            except:
+            except OSError:
+                pass  # Ignore handle invalid errors during forced exit
+            except Exception:
                 pass
         self.root.destroy()
 
