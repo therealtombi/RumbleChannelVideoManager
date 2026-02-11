@@ -5,3 +5,4 @@ webdriver-manager
 undetected-chromedriver
 setuptools
 pyinstaller
+customtkinter
